@@ -4,17 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ôn tập MLN122</title>
+<script>
+  // Apply the saved theme before first paint to avoid a flash.
+  try {
+    const t = (JSON.parse(localStorage.getItem('mln122-quiz-v1-ui')) || {}).theme;
+    if (t) document.documentElement.dataset.theme = t;
+  } catch (e) {}
+</script>
 <style>
   :root {
     --bg: #f6f7f9; --card: #fff; --text: #1f2328; --muted: #656d76; --border: #d0d7de;
     --accent: #2f6fde; --ok: #1a7f37; --ok-bg: #e6f4ea; --bad: #cf222e; --bad-bg: #fdecec;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #0f1115; --card: #181b21; --text: #e6e8eb; --muted: #9aa3ad; --border: #30363d;
       --accent: #5b9cff; --ok: #3fb950; --ok-bg: #12261a; --bad: #f85149; --bad-bg: #2d1416;
     }
   }
+  :root[data-theme="dark"] {
+      --bg: #0f1115; --card: #181b21; --text: #e6e8eb; --muted: #9aa3ad; --border: #30363d;
+      --accent: #5b9cff; --ok: #3fb950; --ok-bg: #12261a; --bad: #f85149; --bad-bg: #2d1416;
+  }
+  :root { color-scheme: light; }
+  :root[data-theme="dark"] { color-scheme: dark; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
          font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -25,7 +38,8 @@
   .top { display: flex; align-items: center; gap: 10px; }
   .top #summary { font-size: 13px; color: var(--muted); display: none; min-width: 0;
                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .top #toggle { margin-left: auto; flex: none; }
+  .top #theme { margin-left: auto; flex: none; }
+  .top #toggle { flex: none; }
   #panel { margin-top: 8px; }
   header.collapsed #panel { display: none; }
   header.collapsed #summary { display: block; }
@@ -70,6 +84,7 @@
     <div class="top">
       <h1>Ôn tập trắc nghiệm MLN122</h1>
       <span id="summary"></span>
+      <button id="theme"></button>
       <button id="toggle"></button>
     </div>
     <div id="panel">
@@ -296,6 +311,17 @@ function applyCollapsed() {
 }
 document.getElementById('toggle').onclick = () => { ui.collapsed = !ui.collapsed; saveUi(); applyCollapsed(); };
 applyCollapsed();
+
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+const isDark = () => ui.theme ? ui.theme === 'dark' : darkQuery.matches;
+function applyTheme() {
+  if (ui.theme) document.documentElement.dataset.theme = ui.theme;
+  else delete document.documentElement.dataset.theme;
+  document.getElementById('theme').textContent = isDark() ? '☀️ Sáng' : '🌙 Tối';
+}
+document.getElementById('theme').onclick = () => { ui.theme = isDark() ? 'light' : 'dark'; saveUi(); applyTheme(); };
+darkQuery.addEventListener('change', applyTheme);
+applyTheme();
 
 refresh();
 </script>
