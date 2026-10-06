@@ -35,7 +35,11 @@
 
   .q { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
        padding: 14px 16px; margin: 12px 0; }
-  .q .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; }
+  .q .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
+  .q .clear { margin-left: auto; font-size: 12px; padding: 2px 8px; color: var(--muted); }
+  .q .clear:hover { color: var(--bad); border-color: var(--bad); }
+  button.danger { color: var(--bad); border-color: var(--bad); }
+  button.danger:hover { background: var(--bad); color: #fff; }
   .q .meta .tag { padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); }
   .q .meta .tag.bad { color: var(--bad); border-color: var(--bad); }
   .q .meta .tag.ok { color: var(--ok); border-color: var(--ok); }
@@ -62,7 +66,7 @@
       <span class="note">Lọc:</span>
       <span id="filters"></span>
       <button class="link" id="shuffle">Trộn câu</button>
-      <button class="link" id="reset">Xóa kết quả chương này</button>
+      <button class="danger" id="reset">Xóa câu trả lời của chương</button>
       <span class="stats" id="stats"></span>
     </div>
     <div class="bar"><div id="bar"></div></div>
@@ -165,6 +169,13 @@ function renderCard(q, idx) {
     t.textContent = 'hỏi nhanh';
     meta.appendChild(t);
   }
+  if (prev) {
+    const c = document.createElement('button');
+    c.className = 'clear';
+    c.textContent = 'Xóa câu trả lời';
+    c.onclick = () => clearOne(q, idx, el);
+    meta.appendChild(c);
+  }
   el.appendChild(meta);
 
   const text = document.createElement('div');
@@ -209,7 +220,16 @@ function answer(q, i, el) {
   store[q.id] = { c: i, ok, wrong: (prev.wrong || 0) + (ok ? 0 : 1), t: Date.now() };
   save();
   fresh.delete(q.id);
-  showResult(el, q, i);
+  el.replaceWith(renderCard(q, [...el.parentNode.children].indexOf(el)));
+  renderNav();
+  renderStats();
+}
+
+function clearOne(q, idx, el) {
+  delete store[q.id];
+  save();
+  fresh.delete(q.id);
+  el.replaceWith(renderCard(q, idx));
   renderNav();
   renderStats();
 }
@@ -247,7 +267,7 @@ document.getElementById('shuffle').onclick = () => {
 
 document.getElementById('reset').onclick = () => {
   const name = ui.ch === 'all' ? 'TẤT CẢ các chương' : DATA[ui.ch].name;
-  if (!confirm(`Xóa toàn bộ kết quả đã làm của ${name}?`)) return;
+  if (!confirm(`Xóa mọi câu trả lời của ${name}?`)) return;
   chapterQs().forEach(q => delete store[q.id]);
   save();
   refresh();
