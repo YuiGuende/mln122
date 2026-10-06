@@ -272,7 +272,7 @@ function renderCard(q) {
 
   const box = document.createElement('div');
   box.className = 'notebox';
-  box.innerHTML = '<label>📝 Ghi chú</label><textarea placeholder="Ghi chú cho câu này… (tự động lưu)"></textarea>';
+  box.innerHTML = '<label>Ghi chú</label><textarea placeholder="Ghi chú cho câu này… (tự động lưu)"></textarea>';
   const ta = box.lastChild;
   ta.value = notes[q.id] || '';
   ta.oninput = () => {
@@ -291,7 +291,7 @@ function renderCard(q) {
 function paintNoteBtn(el) {
   const open = el.classList.contains('has-note');
   const b = el.querySelector('.notebtn');
-  b.textContent = open ? '📝 Ẩn ghi chú' : notes[el.dataset.id] ? '📝 Xem ghi chú' : '📝 Ghi chú';
+  b.textContent = open ? 'Ẩn ghi chú' : notes[el.dataset.id] ? 'Xem ghi chú' : 'Ghi chú';
   b.classList.toggle('active', !!notes[el.dataset.id]);
 }
 
