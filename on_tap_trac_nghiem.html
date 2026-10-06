@@ -33,7 +33,7 @@
          font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   header { position: sticky; top: 0; z-index: 5; background: var(--card);
            border-bottom: 1px solid var(--border); }
-  .wrap { max-width: 860px; margin: 0 auto; padding: 12px 16px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 12px 16px; }
   h1 { font-size: 18px; margin: 0; }
   .top { display: flex; align-items: center; gap: 10px; }
   .top #summary { font-size: 13px; color: var(--muted); display: none; min-width: 0;
@@ -57,13 +57,26 @@
   .q { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
        padding: 14px 16px; margin: 12px 0; }
   .q .meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
-  .q .clear { margin-left: auto; font-size: 12px; padding: 2px 8px; color: var(--muted); }
-  .q .clear:hover { color: var(--bad); border-color: var(--bad); }
+  .q .tools { margin-left: auto; display: flex; gap: 6px; }
+  .q .tools button { font-size: 12px; padding: 2px 8px; color: var(--muted); }
+  .q .tools button.active { color: var(--accent); border-color: var(--accent); }
+  .q .tools .save.active { color: #b7791f; border-color: #d69e2e; }
+  .q .tools .clear:hover { color: var(--bad); border-color: var(--bad); }
   button.danger { color: var(--bad); border-color: var(--bad); }
   button.danger:hover { background: var(--bad); color: #fff; }
   .q .meta .tag { padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); }
   .q .meta .tag.bad { color: var(--bad); border-color: var(--bad); }
   .q .meta .tag.ok { color: var(--ok); border-color: var(--ok); }
+  .q .body { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .q.has-note .body { grid-template-columns: minmax(0, 1fr) 280px; }
+  .q:not(.has-note) .notebox { display: none; }
+  @media (max-width: 760px) { .q.has-note .body { grid-template-columns: 1fr; } }
+  .notebox { display: flex; flex-direction: column; gap: 4px; }
+  .notebox label { font-size: 12px; color: var(--muted); }
+  .notebox textarea { flex: 1; min-height: 110px; resize: vertical; font: inherit; font-size: 14px;
+                      padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+                      background: var(--bg); color: var(--text); }
+  .notebox textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   .q .text { font-weight: 600; margin-bottom: 10px; }
   .opt { display: flex; gap: 8px; width: 100%; text-align: left; padding: 8px 10px; margin: 6px 0;
          font-size: 15px; border-radius: 8px; }
@@ -111,12 +124,18 @@ let store = {};
 try { store = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
+// Notes and saved marks live apart from answers so "Xóa câu trả lời" never wipes them.
+const load = k => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch (e) { return {}; } };
+const persist = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const notes = load(KEY + '-notes');
+const saved = load(KEY + '-saved');
+
 let ui = { ch: 0, filter: 'all' };
 try { Object.assign(ui, JSON.parse(localStorage.getItem(KEY + '-ui')) || {}); } catch (e) {}
 const saveUi = () => { try { localStorage.setItem(KEY + '-ui', JSON.stringify(ui)); } catch (e) {} };
 
 const FILTERS = [
-  ['all', 'Tất cả'], ['todo', 'Chưa làm'], ['wrong', 'Làm sai'], ['right', 'Làm đúng'],
+  ['all', 'Tất cả'], ['todo', 'Chưa làm'], ['wrong', 'Làm sai'], ['right', 'Làm đúng'], ['saved', '★ Đã lưu'],
 ];
 
 // Questions fixed for the current view, so answering in "Làm sai" mode does not make the card vanish.
@@ -125,8 +144,9 @@ let view = [];
 let fresh = new Set();
 
 function chapterQs() {
-  if (ui.ch === 'all') return DATA.flatMap((c, i) => c.qs.map(q => ({ ...q, chName: c.name })));
-  return DATA[ui.ch].qs.map(q => ({ ...q, chName: DATA[ui.ch].name }));
+  const tag = c => c.qs.map((q, i) => ({ ...q, chName: c.name, n: i + 1 }));
+  if (ui.ch === 'all') return DATA.flatMap(tag);
+  return tag(DATA[ui.ch]);
 }
 
 function status(q) {
@@ -135,8 +155,14 @@ function status(q) {
   return r.ok ? 'right' : 'wrong';
 }
 
+function matches(q, f) {
+  if (f === 'all') return true;
+  if (f === 'saved') return !!saved[q.id];
+  return status(q) === f;
+}
+
 function buildView() {
-  view = chapterQs().filter(q => ui.filter === 'all' || status(q) === ui.filter);
+  view = chapterQs().filter(q => matches(q, ui.filter));
   fresh = new Set(ui.filter === 'wrong' ? view.map(q => q.id) : []);
 }
 
@@ -157,7 +183,7 @@ function renderNav() {
   fEl.innerHTML = '';
   const all = chapterQs();
   FILTERS.forEach(([val, label]) => {
-    const n = val === 'all' ? all.length : all.filter(q => status(q) === val).length;
+    const n = all.filter(q => matches(q, val)).length;
     const b = document.createElement('button');
     b.textContent = `${label} (${n})`;
     if (ui.filter === val) b.className = 'on';
@@ -179,14 +205,15 @@ function renderStats() {
   document.getElementById('bar').style.width = (all.length ? right / all.length * 100 : 0) + '%';
 }
 
-function renderCard(q, idx) {
+function renderCard(q) {
   const el = document.createElement('div');
   el.className = 'q';
+  el.dataset.id = q.id;
   const r = fresh.has(q.id) ? null : store[q.id];
 
   const meta = document.createElement('div');
   meta.className = 'meta';
-  meta.innerHTML = `<span>Câu ${idx + 1}</span>` + (ui.ch === 'all' ? `<span>${q.chName}</span>` : '');
+  meta.innerHTML = `<span>Câu ${q.n}</span>` + (ui.ch === 'all' ? `<span>${q.chName}</span>` : '');
   const prev = store[q.id];
   if (prev && prev.wrong) {
     const t = document.createElement('span');
@@ -201,19 +228,37 @@ function renderCard(q, idx) {
     t.textContent = 'hỏi nhanh';
     meta.appendChild(t);
   }
+  const tools = document.createElement('span');
+  tools.className = 'tools';
   if (prev) {
     const c = document.createElement('button');
     c.className = 'clear';
     c.textContent = 'Xóa câu trả lời';
-    c.onclick = () => clearOne(q, idx, el);
-    meta.appendChild(c);
+    c.onclick = () => clearOne(q, el);
+    tools.appendChild(c);
   }
+  const nb = document.createElement('button');
+  nb.className = 'notebtn';
+  nb.onclick = () => toggleNote(el);
+  tools.appendChild(nb);
+  const sb = document.createElement('button');
+  sb.className = 'save';
+  sb.onclick = () => toggleSaved(q, sb);
+  tools.appendChild(sb);
+  paintSave(q, sb);
+  meta.appendChild(tools);
   el.appendChild(meta);
+
+  const body = document.createElement('div');
+  body.className = 'body';
+  const main = document.createElement('div');
+  body.appendChild(main);
+  el.appendChild(body);
 
   const text = document.createElement('div');
   text.className = 'text';
   text.textContent = q.q;
-  el.appendChild(text);
+  main.appendChild(text);
 
   const btns = q.o.map((o, i) => {
     const b = document.createElement('button');
@@ -221,12 +266,52 @@ function renderCard(q, idx) {
     b.innerHTML = `<b>${LETTERS[i]}.</b><span></span>`;
     b.lastChild.textContent = o;
     b.onclick = () => answer(q, i, el);
-    el.appendChild(b);
+    main.appendChild(b);
     return b;
   });
 
+  const box = document.createElement('div');
+  box.className = 'notebox';
+  box.innerHTML = '<label>📝 Ghi chú</label><textarea placeholder="Ghi chú cho câu này… (tự động lưu)"></textarea>';
+  const ta = box.lastChild;
+  ta.value = notes[q.id] || '';
+  ta.oninput = () => {
+    if (ta.value.trim()) notes[q.id] = ta.value; else delete notes[q.id];
+    persist(KEY + '-notes', notes);
+    paintNoteBtn(el);
+  };
+  body.appendChild(box);
+  el.classList.toggle('has-note', !!notes[q.id]);
+  paintNoteBtn(el);
+
   if (r) showResult(el, q, r.c, btns);
   return el;
+}
+
+function paintNoteBtn(el) {
+  const open = el.classList.contains('has-note');
+  const b = el.querySelector('.notebtn');
+  b.textContent = open ? '📝 Ẩn ghi chú' : notes[el.dataset.id] ? '📝 Xem ghi chú' : '📝 Ghi chú';
+  b.classList.toggle('active', !!notes[el.dataset.id]);
+}
+
+function toggleNote(el) {
+  const open = !el.classList.contains('has-note');
+  el.classList.toggle('has-note', open);
+  paintNoteBtn(el);
+  if (open) el.querySelector('textarea').focus();
+}
+
+function paintSave(q, b) {
+  b.textContent = saved[q.id] ? '★ Đã lưu' : '☆ Lưu';
+  b.classList.toggle('active', !!saved[q.id]);
+}
+
+function toggleSaved(q, b) {
+  if (saved[q.id]) delete saved[q.id]; else saved[q.id] = Date.now();
+  persist(KEY + '-saved', saved);
+  paintSave(q, b);
+  renderNav();
 }
 
 function showResult(el, q, chosen, btns) {
@@ -241,7 +326,7 @@ function showResult(el, q, chosen, btns) {
     const e = document.createElement('div');
     e.className = 'expl';
     e.textContent = q.e;
-    el.appendChild(e);
+    el.querySelector('.body > div').appendChild(e);
   }
 }
 
@@ -252,16 +337,16 @@ function answer(q, i, el) {
   store[q.id] = { c: i, ok, wrong: (prev.wrong || 0) + (ok ? 0 : 1), t: Date.now() };
   save();
   fresh.delete(q.id);
-  el.replaceWith(renderCard(q, [...el.parentNode.children].indexOf(el)));
+  el.replaceWith(renderCard(q));
   renderNav();
   renderStats();
 }
 
-function clearOne(q, idx, el) {
+function clearOne(q, el) {
   delete store[q.id];
   save();
   fresh.delete(q.id);
-  el.replaceWith(renderCard(q, idx));
+  el.replaceWith(renderCard(q));
   renderNav();
   renderStats();
 }
@@ -270,12 +355,13 @@ function renderList() {
   const list = document.getElementById('list');
   list.innerHTML = '';
   if (!view.length) {
-    const msg = { wrong: 'Không còn câu nào làm sai 🎉', todo: 'Đã làm hết các câu.', right: 'Chưa có câu nào làm đúng.' };
+    const msg = { wrong: 'Không còn câu nào làm sai 🎉', todo: 'Đã làm hết các câu.', right: 'Chưa có câu nào làm đúng.',
+                  saved: 'Chưa lưu câu nào. Bấm "☆ Lưu" ở góc mỗi câu để thêm vào đây.' };
     list.innerHTML = `<div class="empty">${msg[ui.filter] || 'Không có câu hỏi.'}</div>`;
     return;
   }
   const frag = document.createDocumentFragment();
-  view.forEach((q, i) => frag.appendChild(renderCard(q, i)));
+  view.forEach(q => frag.appendChild(renderCard(q)));
   list.appendChild(frag);
 }
 
