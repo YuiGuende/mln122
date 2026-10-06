@@ -21,7 +21,14 @@
   header { position: sticky; top: 0; z-index: 5; background: var(--card);
            border-bottom: 1px solid var(--border); }
   .wrap { max-width: 860px; margin: 0 auto; padding: 12px 16px; }
-  h1 { font-size: 18px; margin: 0 0 8px; }
+  h1 { font-size: 18px; margin: 0; }
+  .top { display: flex; align-items: center; gap: 10px; }
+  .top #summary { font-size: 13px; color: var(--muted); display: none; min-width: 0;
+                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .top #toggle { margin-left: auto; flex: none; }
+  #panel { margin-top: 8px; }
+  header.collapsed #panel { display: none; }
+  header.collapsed #summary { display: block; }
   .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .row + .row { margin-top: 8px; }
   button { font: inherit; font-size: 14px; padding: 5px 12px; border-radius: 6px; cursor: pointer;
@@ -58,9 +65,14 @@
 </style>
 </head>
 <body>
-<header>
+<header id="header">
   <div class="wrap">
-    <h1>Ôn tập trắc nghiệm MLN122</h1>
+    <div class="top">
+      <h1>Ôn tập trắc nghiệm MLN122</h1>
+      <span id="summary"></span>
+      <button id="toggle"></button>
+    </div>
+    <div id="panel">
     <div class="row" id="chapters"></div>
     <div class="row">
       <span class="note">Lọc:</span>
@@ -68,6 +80,7 @@
       <button class="link" id="shuffle">Trộn câu</button>
       <button class="danger" id="reset">Xóa câu trả lời của chương</button>
       <span class="stats" id="stats"></span>
+    </div>
     </div>
     <div class="bar"><div id="bar"></div></div>
   </div>
@@ -144,6 +157,10 @@ function renderStats() {
   const right = all.filter(q => status(q) === 'right').length;
   document.getElementById('stats').textContent =
     `Đã làm ${done}/${all.length} · Đúng ${right}` + (done ? ` (${Math.round(right / done * 100)}%)` : '');
+  const ch = ui.ch === 'all' ? 'Tất cả chương' : DATA[ui.ch].name;
+  const f = FILTERS.find(x => x[0] === ui.filter)[1];
+  document.getElementById('summary').textContent =
+    `${ch} · ${f} · ${document.getElementById('stats').textContent}`;
   document.getElementById('bar').style.width = (all.length ? right / all.length * 100 : 0) + '%';
 }
 
@@ -272,6 +289,13 @@ document.getElementById('reset').onclick = () => {
   save();
   refresh();
 };
+
+function applyCollapsed() {
+  document.getElementById('header').classList.toggle('collapsed', !!ui.collapsed);
+  document.getElementById('toggle').textContent = ui.collapsed ? 'Mở rộng ▼' : 'Thu gọn ▲';
+}
+document.getElementById('toggle').onclick = () => { ui.collapsed = !ui.collapsed; saveUi(); applyCollapsed(); };
+applyCollapsed();
 
 refresh();
 </script>
